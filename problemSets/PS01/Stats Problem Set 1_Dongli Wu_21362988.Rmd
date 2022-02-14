@@ -1,0 +1,129 @@
+---
+title: "Problem Set 1_Applied Stats_Dongli Wu_21362988"
+output: html_notebook
+---
+
+
+```{r}
+# Question 1
+
+# Make the hypotheses for the test:
+
+## Null hypothesis(Ho): the empirical distribution of the observed data matches the specified PDF.
+## Alternative hypothesis(H1): at least one value doesn't match the specified distribution.
+
+
+# set seed for random number generation
+
+set.seed(123)
+
+# generate 1000 random cauchy density varialbes 
+y <-rcauchy(1000, location = 0, scale = 1)
+y
+
+# write the function to find the largest absolute difference between the empirical distirbution (use "ecdf(y)(y)") and the theoretical normal distribution (use "pnorm(y)") across all x position.
+
+D <- y[which.max(abs(ecdf(y)(y)-pnorm(y,mean(y),sd = sd(y))))]
+
+# set up the observed data as data frame.
+df <-data.frame(x = y)
+
+# plot the Empirical distribution, Theoretical distribution and also mark the maximum difference.
+
+library(ggplot2)
+
+ggplot(df, aes(x)) +
+  stat_ecdf(aes(colour = "Empirical")) +
+  stat_function(fun = pnorm, args = list(mean = mean(y), sd = sd(y)),
+                aes(colour = "Theoretical")) +
+  annotate(
+    "segment",
+    x = D, xend = D,
+    y = ecdf(y)(D), yend = pnorm(D, mean(y), sd(y)),
+    size =1
+  )
+
+# The maxinum difference shows on the gragh, D = 0.3 (=0.4-0.1)
+
+# Now we can use "ks.test()" to get P-value and test if the D value the same result as above
+
+ks.test(y,"pnorm",mean(y),sd(y))
+
+## D = 0.30395, D-value equals to the result above.
+## p-value < 2.2e-16, P-value more less than 0.05, so the null hypothesis could be rejected. The empirical distribution of the observed data doesn't match the theoretical distribution.
+
+
+```
+
+```{r}
+#Question 2
+
+# set up the data
+
+set.seed(123)
+data <-data.frame(x = runif(200, 1, 100))
+data$y <- 0 + 2.75*data$x +rnorm(200, 0, 1.5)
+
+# write the function of the OLS regression with θ=(β, σ)
+linear.lik <- function(theta, y, x){
+  n <- nrow(x)
+  k <- ncol(x)
+  beta <- theta[1:k]
+  sigma2 <- theta[k+1]^2
+  e <- y-x%*%beta
+  logl <- -0.5*n*log(2*pi)-0.5*n*log(sigma2)-((t(e)%*%e)/(2*sigma2))
+  return(-logl)
+}
+
+
+
+# it creates a surface at different values of β and σ
+
+surface <- list()
+k <- 0
+for (beta in seq (0, 5, 0.1)){
+   for (sigma in seq(0.1, 5, 0.1)){
+     k <- k + 1
+     logl <- linear.lik(theta = c(0, beta, sigma), y = data$y, x = cbind(1, data$x))
+     surface[[k]] <- data.frame(beta = beta, sigma = sigma, logl = -logl)
+   }
+}
+surface <- do.call(rbind, surface)
+library(lattice)
+
+wireframe(logl ~ beta*sigma, surface, shade = TRUE)
+
+# use "optim()" to find the parameters of the maximum point on the surface
+
+linear.MLE <- optim(fn=linear.lik, par = c(1,1,1), hessian = TRUE, y = data$y, x = cbind(1, data$x), method = "BFGS")
+
+linear.MLE$par
+
+##[1]  0.118865  2.747869 -1.441841
+## the result explores the parameters,  β=2.75 and σ^2=118
+
+summary(lm(y ~x, data))
+
+##Coefficients:
+##            Estimate Std. Error t value            Pr(>|t|)
+##(Intercept) 0.118004   0.218720    0.54                0.59
+##x           2.747882   0.003781  726.81 <0.0000000000000002
+               
+##(Intercept)    
+##x           ***
+##---
+
+# Conclusion: lm turns out the equivalent results to the Newton-Raphson algotiyhm.
+```
+
+```{r}
+
+```
+
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file). 
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
+
